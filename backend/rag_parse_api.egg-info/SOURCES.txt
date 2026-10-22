@@ -4,6 +4,7 @@ app/config.py
 app/logging.py
 app/main.py
 app/api/__init__.py
+app/api/application.py
 app/api/health.py
 app/domain/__init__.py
 app/domain/model_policy.py
