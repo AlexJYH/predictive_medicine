@@ -44,3 +44,5 @@ data/
 # Temporary local notes and artifacts
 temp/
 tmp/
+
+*.egg-info/
