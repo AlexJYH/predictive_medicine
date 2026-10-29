@@ -1,13 +1,8 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
 
+from backend.services.health.model.health import HealthResponse
 
 router = APIRouter(tags=["system"])
-
-
-class HealthResponse(BaseModel):
-    status: str
-    environment: str
 
 
 @router.get("/health", response_model=HealthResponse)

@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 function App() {
-  const [status, setStatus] = useState("正在连接应用服务…");
+  const [status, setStatus] = useState("Connecting to the application service…");
 
   useEffect(() => {
     fetch("/bff/v1/bootstrap")
@@ -11,16 +11,16 @@ function App() {
         if (!response.ok) throw new Error("BFF unavailable");
         return response.json();
       })
-      .then((payload: { application: { name: string } }) => setStatus(`${payload.application.name} 已连接`))
-      .catch(() => setStatus("应用服务暂不可用"));
+      .then((payload: { application: { name: string } }) => setStatus(`${payload.application.name} connected`))
+      .catch(() => setStatus("Application service temporarily unavailable"));
   }, []);
 
   return (
     <main>
       <p className="eyebrow">RAG PARSE</p>
-      <h1>可信文档问答平台</h1>
+      <h1>Trusted Document Q&amp;A Platform</h1>
       <p>{status}</p>
-      <p>后续将在此接入登录、知识库与可追溯检索。</p>
+      <p>Sign-in, knowledge bases, and traceable retrieval will be added here.</p>
     </main>
   );
 }
