@@ -1,5 +1,14 @@
-from backend.app.main import app
+from backend.common.config.bootstrap import load_batch_config
+from backend.app.factor import create_app
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app,host="127.0.0.1",port=8001)
+
+    batch_config = load_batch_config()
+    server = batch_config.server_setting.server
+    create_app = create_app(batch_config)
+    uvicorn.run(
+        create_app,
+        host=server.host,
+        port=server.port,
+    )

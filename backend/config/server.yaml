@@ -1,0 +1,4 @@
+server:
+  prefix: ${PREDICTIVE_MEDICINE_PREFIX:-/predictive/medicine}
+  host: ${PREDICTIVE_MEDICINE_HOST:-127.0.0.1}
+  port: ${PREDICTIVE_MEDICINE_PORT:-8001}
