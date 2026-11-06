@@ -111,6 +111,42 @@ backend/main.py
 
 完成包导入和工厂接入后，统一从项目根目录执行 `python -m backend.main`，项目内部绝对导入使用 `backend.` 前缀。当前阶段先验收启动、配置生效、健康接口、请求追踪和异常处理，再按模块增加业务能力。
 
+## 数据库迁移
+
+迁移配置位于 `backend/alembic.ini`，连接入口位于 `backend/migrations/env.py`，变更脚本保存在 `backend/migrations/versions/`。以下命令从项目根目录执行，`python` 使用与后端相同的解释器和依赖环境。
+
+```bash
+cd /Users/imav/projects/freedom/predictive_medicine
+```
+
+当前 `backend/pyproject.toml` 尚未声明 Alembic。使用前在后端运行依赖中添加 `alembic` 并安装到对应环境。
+
+创建空迁移脚本，由 Alembic 自动填写版本号和前一版本号。
+
+```bash
+python -m alembic -c backend/alembic.ini revision -m "create health checks"
+```
+
+在生成文件的 `upgrade()` 中编写 DDL 或版本升级需要的 DML，例如使用 `op.execute(...)` 执行 SQL；在 `downgrade()` 中定义回退操作。已执行的版本保持原样，后续变更新建脚本。
+
+如果已定义并在 `env.py` 中导入业务 ORM 模型，可以生成结构差异草稿。执行前确认 `Base.metadata` 已包含所有受管理的业务表，生成后审核具体操作。
+
+```bash
+APP_ENV=dev python -m alembic -c backend/alembic.ini revision --autogenerate -m "add health checks"
+```
+
+审核脚本后升级到最新版本，并查询当前数据库版本及脚本历史。
+
+```bash
+APP_ENV=dev python -m alembic -c backend/alembic.ini upgrade head
+APP_ENV=dev python -m alembic -c backend/alembic.ini current
+python -m alembic -c backend/alembic.ini history
+```
+
+Alembic 首次在线升级会创建 `alembic_version` 表，通过数据库当前版本与脚本的 `revision`、`down_revision` 确定待执行路径。已有业务表的数据库需先核对基线，避免重复建表。
+
+当前启动入口尚未自动执行迁移。后续接入自动迁移时，先完成 `upgrade head`，成功后再启动 Uvicorn；迁移失败应阻止启动。多实例部署将迁移作为应用启动前的一次性步骤执行。
+
 ## 模型与 Agent 运行边界
 
 上层按任务能力调用统一的模型入口，由配置选择本地或经批准的外部模型。调用层逐步支持超时与取消、受限重试/降级、并发控制、输出校验、用量预算和脱敏追踪。LiteLLM 可作为进程内 Adapter 接入多 Provider，无需为此强制增加独立代理服务。

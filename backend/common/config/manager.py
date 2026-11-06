@@ -1,5 +1,4 @@
 import re
-from functools import lru_cache
 from pathlib import Path
 from typing import *
 
@@ -49,6 +48,8 @@ class ConfigManager:
         self._cache.clear()
 
 
-@lru_cache
-def get_config_manager() -> ConfigManager:
-    return ConfigManager()
+def get_config_manager(
+        env: dict[str, str],
+        config_dir: str,
+) -> ConfigManager:
+    return ConfigManager(config_dir=config_dir, env=env, )

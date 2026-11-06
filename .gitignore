@@ -5,9 +5,6 @@
 .DS_Store
 
 # Secrets and local configuration
-.env
-.env.*
-!.env.example
 *.pem
 *.key
 
@@ -47,4 +44,6 @@ tmp/
 
 *.egg-info/
 
-backend/env
+backend/env/*
+!backend/env/example
+!backend/env/example/*
