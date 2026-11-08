@@ -3,7 +3,7 @@ from typing import TypeVar, Any, Generic
 from pydantic import Field
 
 from backend.common.model.contract_model import ContractModel
-from backend.common.model.result_code import ResultCode
+from backend.common.enums.result_code import ResultCode
 
 T = TypeVar("T")
 

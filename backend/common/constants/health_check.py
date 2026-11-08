@@ -1,0 +1,1 @@
+SUCCESS_HEALTH_CHECK_MESSAGE = "application health"
