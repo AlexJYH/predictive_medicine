@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -6,6 +7,7 @@ from alembic.config import Config
 from fastapi import FastAPI
 
 from backend.app.api.router import api_router
+from backend.app.middleware.authentication.auth import AuthenticationMiddleware
 from backend.common.config.bootstrap import BatchConfig
 from backend.common.id.snowflake import SnowflakeIdGenerator
 from backend.infrastructure.database.audit import register_audit_events
@@ -17,7 +19,7 @@ from backend.infrastructure.runtime import RuntimeResources, clear_resources, in
 
 def create_app(config: BatchConfig) -> FastAPI:
     @asynccontextmanager
-    async def lifespan():
+    async def lifespan(_app: FastAPI):
         runtime = DatabaseRuntime.create(config.database_setting.database)
         generator = SnowflakeIdGenerator(
             worker_id=config.id_generator_setting.id_generator.worker_id,
@@ -44,6 +46,16 @@ def create_app(config: BatchConfig) -> FastAPI:
     app = FastAPI(
         title="predictive medicine",
         lifespan=lifespan,
+    )
+    app.add_middleware(
+        AuthenticationMiddleware,
+        environment=os.environ.get("APP_ENV"),
+        public_routes={
+            (route.method.upper(), f"{config.server_setting.server.prefix}{route.path}")
+            for route in config.routers_setting.routers
+        },
+        token_verifier = None,
+        verification_timeout_seconds = config.identity_setting.identity.verification_timeout_seconds,
     )
     app.include_router(
         api_router,

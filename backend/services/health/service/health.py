@@ -7,7 +7,6 @@ from backend.common.constants.health_check import SUCCESS_HEALTH_CHECK_MESSAGE
 from backend.common.enums.result_code import ResultCode
 from backend.common.id.snowflake import SnowflakeIdGenerator
 from backend.common.identity.context import require_identity
-from backend.common.identity.model.identity import IdentityContext
 from backend.infrastructure.database.tenant_scope import apply_database_scope
 from backend.repository.health.protocol import HealthRepository
 from backend.services.health.model.health import HealthResponse, HealthCheckDTO

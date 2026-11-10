@@ -1,0 +1,5 @@
+routers:
+  - method: POST
+    path: /identity/verify
+  - method: POST
+    path: /identity/register

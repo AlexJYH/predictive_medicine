@@ -1,5 +1,3 @@
-from dataclasses import asdict
-
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from backend.repository.health.orm import HealthCheckORM

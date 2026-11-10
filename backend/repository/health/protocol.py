@@ -1,6 +1,5 @@
 from typing import Protocol
 
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from backend.services.health.model.health import HealthCheckDTO

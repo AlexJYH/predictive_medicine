@@ -21,7 +21,7 @@ def _apply_query_scope(execute_state: ORMExecuteState) -> None:
             "Load records and modify them within a scoped transaction."
         )
 
-    if not execute_state.is_select:
+    if not execute_state.is_select or execute_state.execution_options.get("authentication_query", False):
         return
 
     tenant_id = _require_tenant_id()

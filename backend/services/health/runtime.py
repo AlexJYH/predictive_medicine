@@ -1,5 +1,3 @@
-from starlette.requests import Request
-
 from backend.infrastructure.runtime import get_async_session_factory, get_id_generator
 from backend.repository.health.postgres import PostgresHealthRepository
 from backend.services.health.service.health import HealthService
