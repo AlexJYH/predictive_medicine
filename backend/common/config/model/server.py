@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import ConfigDict, field_validator
+
+from backend.common.model.contract_model import ContractModel
 
 
-class ServerSettings(BaseModel):
+class ServerSettings(ContractModel):
     __config_key__ = "server"
 
-    model_config = ConfigDict(extra="forbid")
-
-    class ServerConfig(BaseModel):
+    class ServerConfig(ContractModel):
         model_config = ConfigDict(extra="forbid")
 
         host: str

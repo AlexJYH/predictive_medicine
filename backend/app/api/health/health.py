@@ -1,11 +1,11 @@
 from fastapi import APIRouter
 
 from backend.services.health.model.health import HealthResponse
+from backend.services.health.runtime import get_health_service
 
-router = APIRouter(tags=["system"])
+router = APIRouter(prefix="/check",tags=["system"])
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.post("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    # Dependency probes will be added with the persistence adapters in Phase 1.
-    return HealthResponse(status="ok", environment="configured")
+    return await get_health_service().get_health()

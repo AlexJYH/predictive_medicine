@@ -1,152 +1,190 @@
-# 先兆医学 · predictive_medicine
+# 个人行为先兆预判 · predictive_medicine
 
-`predictive_medicine`（原 `rag_parse`）是一个正在建设的开源**个人行为先兆预判 / 基线漂移解释 Agent**。系统拟将经过授权的日常观测整理为个人时间线，识别相对于个人情境化基线的变化，结合历史与上下文生成可追溯的线索，交由人复核。
+`predictive_medicine`（原 `rag_parse`）是正在建设的开源**个人行为先兆预判 / 基线漂移解释 Agent**。目标是较早发现个人日常行为相对自身基线的变化，生成带来源、带不确定性、供人复核的线索。
 
-这里的“先兆预判”指**较早发现值得复核的变化**。项目当前不提供疾病诊断、病因判断、治疗建议或经过临床验证的未来风险预测。原型的分析结果不能用于紧急处置。
+项目不做疾病诊断、因果断言或未经验证的未来风险预测。数值异常由确定性或统计程序检测，LLM 负责整理证据和解释；数据不足时明确输出未知。
 
 ## 目标链路
 
 ```text
-授权观测（首版 CSV/JSON 与模拟记录；后续 HealthKit/语音）
+授权观测
   → 时间对齐、质量与缺失检查
   → 多时间窗口个人基线
-  → 统计漂移和变点检测
-  → 历史相似片段、上下文与证据
-  → 受控 Agent 生成待复核线索
-  → 人工复核、结果回写与离线评测
+  → 确定性 / 统计漂移检测
+  → 历史相似片段与上下文检索
+  → 受控 Agent 生成 ReviewCase
+  → 人工复核、Outcome 回写与离线评测
 ```
 
-数值检测由可测试的统计逻辑负责；Agent 负责查询经过授权的证据、整理不确定性并生成复核案例。计划用 Python 构建核心能力，以 LangGraph 编排有限步骤，以 LangChain 接入模型、消息和工具。PostgreSQL 保存业务真相；Qdrant 仅在需要时辅助检索历史相似事件，不能替代时间序列基线计算。
+首版使用合成或许可适用的去标识数据离线验证。HealthKit、语音、多 Agent 和文档解析为后续能力；文档仅作为照护记录、报告或指南的可选知识源。
 
-## 架构与职责边界
-
-整体采用**模块化单体 + 用例驱动分层 + 端口/适配器边界 + 选择性 DDD**。先在一个 Python 后端中建立清晰边界；业务规则稳定且复杂时，再引入领域实体、值对象等 DDD 技法。当前优先建设后端，前端和 BFF 暂不推进。
-
-按业务能力逐步形成授权与数据治理、观测导入、数据质量、基线/漂移、证据与复核等模块。每个模块遵守以下职责边界：
-
-| 边界 | 职责 |
-| --- | --- |
-| App / API | `app/` 承载 FastAPI 应用装配与 HTTP 接入；`app/api/` 接收请求、校验格式、调用 Service、返回结果 |
-| Service | 完成业务用例：检查身份、主体、授权和用途，协调取数、规则计算、事务、持久化及审计 |
-| 纯业务规则 | 独立计算覆盖率、基线、漂移和状态变化；不依赖 HTTP、数据库或模型，可用合成数据测试。当前可放在 Service 下的独立文件或子目录 |
-| Repository | 数据库查询与持久化，按经过验证的主体/授权范围约束访问；不决定漂移结论、阈值或是否允许外发 |
-| Adapter | 文件、模型、语音、对象存储、Qdrant 等外部能力的具体接入；数据库持久化由 Repository 承接 |
-| Agent | 编排受控工具和业务用例，整理证据与不确定性；工具通过 Service 访问数据，不能绕过权限和检测规则 |
-| Config | `config/` 只存 YAML；`common/config/` 负责读取、环境变量替换、模型校验、缓存及启动配置装配；密钥通过环境或受控密钥配置提供 |
-| Observability | 结构化日志、运行事件、指标与调用追踪；Langfuse 等接入放在这里，记录内容受脱敏和外发策略约束 |
-| Common | 少量无业务归属的通用工具；业务规则和外部调用不放入 Common |
-
-`API → Service → Repository` 表示职责分工，不要求每次操作都访问数据库。Agent 工具、后台任务和后续离线入口都应复用同一套 Service 授权与业务规则。`logs/` 若使用，仅保存运行产物，日志配置和采集代码归入 Observability。
-
-## 后端目录与应用装配
-
-以下是目标结构，包含尚未实现的扩展位置，不代表目录中的能力已经可用。包目录中的 `__init__.py` 在图中省略。
-
-```text
-backend/
-├── main.py                         # 唯一启动入口，启动 Uvicorn
-├── app/                            # FastAPI 接入与应用装配
-│   ├── factory.py                  # create_app(config)，创建应用
-│   ├── lifespan.py                 # 初始化、关闭运行资源
-│   ├── resources.py                # 连接池、HTTP 客户端等资源集合
-│   ├── api/
-│   │   ├── router.py               # 汇总模块 Router
-│   │   ├── health.py               # 健康检查
-│   │   ├── observations/           # 观测导入、查询
-│   │   ├── baselines/              # 基线计算、查询
-│   │   ├── drifts/                 # 漂移检测、结果查询
-│   │   ├── reviews/                # 人工复核、反馈
-│   │   ├── conversations/          # 会话接口，设计暂缓
-│   │   ├── runs/                   # 执行、取消及流式事件接口
-│   │   ├── voice/                  # 音频上传、转写、语音回复
-│   │   └── documents/              # 文档上传、解析状态、引用
-│   ├── dependencies/              # 提供身份、运行资源、Service
-│   ├── middleware/                # 请求 ID、请求上下文等 HTTP 中间件
-│   ├── exception/                 # 业务异常到 HTTP 响应的映射与注册
-│   └── schema/                    # 通用错误、分页等 HTTP 数据结构
-├── service/                       # 业务用例与可独立测试的规则
-├── repository/                    # 查询、持久化
-├── agent/                         # LangGraph 编排、受控工具
-├── adapter/                       # 模型、语音、文件等外部能力接入
-├── observability/                 # 日志、指标、追踪及 Langfuse
-├── common/config/
-│   ├── loader.py                  # YAML 读取、环境变量替换，返回字典
-│   ├── manager.py                 # 按模型加载、校验及缓存
-│   ├── bootstrap.py               # 集中加载启动配置，返回 BatchConfig
-│   └── model/                     # 按配置类别定义 Pydantic 模型
-├── config/                        # server.yaml 等 YAML 数据文件
-└── tests/
-```
-
-`app/` 不再作为全部后端代码的总容器。业务逻辑归入 Service，持久化归入 Repository，Agent 编排归入 Agent；这些模块不依赖 FastAPI 的 `Request`、`APIRouter` 等 HTTP 类型。当前不额外增加 `gateway/`，也不要求为使用 LangGraph 引入 Aegra。
-
-接口在 `app/api/` 内按业务领域或能力划分。简单模块可先用单个文件；内容增加后，再拆为 `router.py`、`schemas.py` 等。请求和响应模型属于接口契约，不是数据库实体。SSE、WebSocket 等接入代码归入对应接口模块，并复用同一套 Service。尚未实现的业务模块不注册为可用接口。
-
-应用装配分工：
-
-| 位置 | 职责 |
-| --- | --- |
-| `common/config/bootstrap.py` | 调用 Manager，集中加载启动所需配置；不创建数据库连接或 Agent |
-| `app/factory.py` | 接收 `BatchConfig`，创建 FastAPI，注册生命周期、中间件、异常处理和总路由；不在模块导入时连接外部服务 |
-| `app/lifespan.py` | 管理资源创建与释放，初始化失败时清理已创建的资源 |
-| `app/resources.py` | 定义运行资源集合；与仅承载配置值的 `BatchConfig` 分开 |
-| `app/dependencies/` | 从应用资源及请求中提供身份、资源与 Service；数据授权规则仍由 Service 执行 |
-| `app/exception/` | 将已知业务异常转换为 HTTP 状态码和错误响应，不向调用方暴露内部堆栈或凭据 |
-
-配置与启动的目标调用顺序：
-
-```text
-backend/main.py
-  → load_batch_config()
-  → create_app(config)
-  → Uvicorn 使用配置中的 host、port 启动
-  → lifespan 初始化运行资源
-  → 接收请求
-  → 关闭时释放运行资源
-```
-
-配置在启动装配时统一加载，再传给应用工厂。Manager 根据配置模型的 `__config_key__` 选择 YAML，调用 Loader 和 Pydantic 校验，并缓存配置对象。新增配置类型时增加对应模型和 Bootstrap 装配项，无需修改 Manager 的通用加载逻辑。当前 Loader 支持 `${NAME}`、`${NAME:-default}` 替换，但不会自动读取 `.env` 文件。
-
-全局接口前缀只在工厂注册总路由时添加一次，各业务 Router 只定义自身路径。例如默认前缀 `/predictive/medicine` 与健康接口 `/health` 组合为 `/predictive/medicine/health`。前缀设置不会自动改变 `/docs` 或 `/openapi.json`，这些路径如需调整应显式配置。
-
-完成包导入和工厂接入后，统一从项目根目录执行 `python -m backend.main`，项目内部绝对导入使用 `backend.` 前缀。当前阶段先验收启动、配置生效、健康接口、请求追踪和异常处理，再按模块增加业务能力。
-
-## 模型与 Agent 运行边界
-
-上层按任务能力调用统一的模型入口，由配置选择本地或经批准的外部模型。调用层逐步支持超时与取消、受限重试/降级、并发控制、输出校验、用量预算和脱敏追踪。LiteLLM 可作为进程内 Adapter 接入多 Provider，无需为此强制增加独立代理服务。
-
-外发判定必须先于模型路由和降级：本地模型失败不能自动把个人记录发送到云端。数据访问规则同样适用于语音、检索和可观测服务。
-
-LangChain/LangGraph 提供模型、工具、中间件及暂停/恢复机制；DeepAgents 可按需提供子 Agent、文件工具和沙箱接入。框架的审批、文件权限或沙箱不能代替本项目的身份、同意/撤回、主体隔离和数据外发检查。初期只开放经过授权检查的业务工具，不开放任意 Shell 或文件读写；出现不可信代码执行需求后再配置隔离沙箱及网络、文件和凭据边界。
-
-多 Agent 是可选扩展：先验证单一受控流程；只有角色拆分带来可测量的质量收益，才增加权限不同的子 Agent。数值检测始终由可测试的统计逻辑负责。
-
-## 模块顺序
-
-| 模块 | 重点 |
-| --- | --- |
-| 00–01 | 工程与用途边界、身份授权、撤回和数据策略 |
-| 02–03 | 观测事件导入、覆盖率与数据质量 |
-| 04–05 | 个人基线、漂移与变点检测 |
-| 06–07 | 历史证据和人工复核闭环 |
-| 08–09 | 受控 Agent、回放与评测 |
-| 10–11 | 现实数据/语音适配、可选多 Agent |
-| 12 | 文档解析与知识引用：最后接入照护记录、报告和指南 |
-
-文档解析保留为最后一个独立模块。它为解释提供带原文定位的知识证据，不参与个人数值基线或漂移检测。
+技术方向为 Python 后端、LangGraph 有限图编排、LangChain 模型/消息/工具接口。项目自身建设观测契约、基线与漂移证据、授权和模型外发策略、运行事件及回放评测。LangGraph/LangChain 当前尚未接入代码或依赖。
 
 ## 当前进度
 
-新方向目前处于规划与后端骨架整理阶段。以上描述的是目标架构，尚未全部实现：
+以下按 2026-11-10 当前源码整理，代码存在不等于已通过完整集成验收。
 
-- 已有 `server.yaml`、Loader、Manager、`ServerSettings` 与返回 `BatchConfig` 的配置装配函数；根启动入口已将配置中的 host、port 传给 Uvicorn。
-- `app/` 正在按上述职责整理，当前已有健康接口及资源、生命周期、依赖、中间件、异常、通用数据结构等文件或包的占位。现有工厂占位文件名为 `factor.py`，目标命名为 `factory.py`，尚未实现应用工厂。
-- 旧的 `app/main.py`、`app/config.py`、`app/logging.py`、`app/domain/` 和 RAG bootstrap 接口已从当前工作目录移除；根 `backend/main.py` 仍引用已移除的 `backend.app.main`，需要接入新工厂后才能按当前源码完成启动验收。配置加载成功不等于应用装配完成。
-- 全局路由前缀、总 Router 与新工厂尚待接通。Docker 仍使用旧 `app.main:app`；依赖声明尚未包含 Loader 使用的 PyYAML，打包、容器与测试导入路径也需随入口一起对齐。
-- `service/`、`repository/`、`agent/`、`observability/` 目前主要是占位包。当前没有个人观测、基线、漂移检测、HealthKit、语音或复核闭环实现；旧测试仍引用已移除的模块和 RAG bootstrap 接口，需要按新结构调整，不能作为新基座已通过验收的证据。
+| 能力 | 当前状态 |
+| --- | --- |
+| 应用启动与配置 | 已有 FastAPI 工厂、总路由、YAML 配置、环境文件读取、Pydantic 校验与配置装配 |
+| 数据库基础 | 已有异步 SQLAlchemy 资源、启动连接检查、Alembic 迁移、雪花 ID、审计及租户查询范围钩子 |
+| 用户与租户 | 已有用户、租户、成员关系三表的迁移/ORM、查询及写入方法 |
+| 注册与凭据校验 | 已有三表同事务注册、Argon2 密码哈希与校验、用户/租户/成员有效性查询 |
+| 请求身份 | 已有 ASGI 认证中间件、配置化公开路由及 ContextVar 身份上下文；dev 使用 Header 并查询数据库验证身份 |
+| Token 会话 | 仅有验证协议和中间件调用位置；工厂传入 `token_verifier=None`，Token 签发、验证实现、Redis 会话和过期/注销尚未完成 |
+| 管理权限与开户限制 | 尚无完整管理角色/权限校验；`register` 可重复调用，一次性初始化限制已决定暂缓 |
+| 个人数据授权 | ConsentGrant、撤回及模型外发策略尚未落地；用户租户身份不能替代个人数据授权 |
+| Agent 与核心业务 | `agent/` 为空包；观测、质量、基线、漂移、证据、ReviewCase、Outcome 与回放评测尚未实现 |
+| 工程验收 | Docker 和旧测试仍引用历史入口，需要对齐；当前不能视为生产就绪 |
 
-下一步先完成 FastAPI 应用工厂、总路由、配置注入及生命周期等基座，统一入口、导入、容器和验证方式；基座验收后进入授权与数据策略，再用合成数据实现观测导入用例，逐模块建设。开发与评测首先使用合成或许可适用的去标识数据；真实个人记录需要先完成授权、撤回、存储与删除机制。
+当前主线已进入最小 Agent 运行结构设计：先明确一次 Run 的用例、输入输出及状态，再定义最小数据契约和必要能力协议，随后接入 LangGraph/LangChain。可先用固定合成证据验证解释链；完整业务闭环仍需逐步补齐观测、质量、基线和漂移检测。
 
-旧项目的[安全与模型外发策略](docs/security-and-model-policy.md)保留为历史安全基线。其默认拒绝外发、最小权限和审计原则可复用；原文中的知识库、核物理资料和 BFF 阶段安排不是当前开发顺序。
+## 代码结构与职责
 
-详细现行规划及新线程交接稿保存在本机 `temp/个人行为先兆预判Agent/`。`temp/` 当前不纳入 Git，因此仓库公开版以本 README 为项目入口；落地细节以当前仓库代码和实际测试为准。
+采用模块化单体，主要调用关系为 `API → Service → Repository`。Service 协调用例、身份授权和事务，Repository 负责查询与持久化；未来统计规则独立于 HTTP、数据库和 LLM，Agent 工具通过 Service 访问受控能力。
+
+```text
+backend/
+├── main.py                         # 配置加载、迁移、Uvicorn 启动
+├── app/
+│   ├── factor.py                   # 当前实际文件名：应用工厂与 lifespan
+│   ├── api/
+│   │   ├── router.py               # 汇总路由
+│   │   ├── health/health.py        # 带身份的数据库写入检查
+│   │   └── identity/identity.py    # 注册、凭据校验、创建租户
+│   ├── middleware/authentication/ # 身份解析、拒绝响应、Token 验证协议
+│   ├── dependencies/
+│   ├── exception/
+│   └── schema/
+├── services/                       # health、identity 用例与契约
+├── repository/                     # ORM、仓储协议、PostgreSQL 实现
+├── infrastructure/
+│   ├── database/                   # Session、审计、租户范围与连接检查
+│   └── runtime.py                 # 运行资源注册与获取
+├── common/
+│   ├── config/                    # Loader、Manager、Bootstrap、配置模型
+│   ├── identity/                  # IdentityContext 与上下文操作
+│   ├── id/                        # 雪花 ID
+│   └── secuirty/password.py        # 当前拼写如此，Argon2 哈希与验证
+├── config/                        # YAML 配置
+├── env/example/                   # 本地环境文件模板
+├── migrations/versions/            # 健康记录与身份三表迁移
+├── agent/                         # 待建设
+├── observability/                 # 可观测能力扩展位置
+└── tests/                         # 历史测试，待适配当前结构
+```
+
+`factor.py` 已实现工厂，生命周期目前也定义在这个文件内。部分其他目录只有占位，目录存在不表示相关功能已完成。内部绝对导入使用 `backend.` 前缀。
+
+## 本地启动
+
+需要 Python 3.12+、uv 和可连接的 PostgreSQL。以下命令从项目根目录执行。
+
+```bash
+uv sync --project backend --no-install-project
+```
+
+当前 setuptools 尚未配置平铺多包发现，直接 `uv sync --project backend` 会尝试安装项目并报 `Multiple top-level packages discovered`。上述命令安装依赖并跳过项目自身安装；项目包名和描述仍保留历史 RAG 命名。
+
+首次配置环境目录（已有 `backend/env/dev/` 时保留现有文件）：
+
+```bash
+mkdir -p backend/env/dev
+cp -n backend/env/example/*.env backend/env/dev/
+```
+
+编辑其中的 `.env` 文件，替换模板中的 `******`。数据库连接使用 `DATABASE_URL=postgresql+asyncpg://用户名:密码@主机:端口/数据库名`；服务配置可使用：
+
+```ini
+PREDICTIVE_MEDICINE_PREFIX=/predictive/medicine
+PREDICTIVE_MEDICINE_HOST=127.0.0.1
+PREDICTIVE_MEDICINE_PORT=8001
+```
+
+启动前确保数据库已存在且连接账号有迁移所需权限：
+
+```bash
+APP_ENV=dev backend/.venv/bin/python -m backend.main
+```
+
+`APP_ENV` 必须显式设置，用于选择 `backend/env/<环境>/`，认证中间件也据此选择身份模式。配置装配读取该目录内的 `*.env`，同名变量由进程环境覆盖；YAML 支持 `${NAME}` 和 `${NAME:-default}` 替换。IDE 使用本项目 `backend/.venv/bin/python`，工作目录设为项目根目录，并设置 `APP_ENV=dev`。
+
+当前启动顺序为：
+
+```text
+加载环境与 YAML 配置 → create_app
+  → Alembic upgrade head
+  → 启动 Uvicorn
+  → lifespan 创建数据库资源并执行连接检查
+  → 注册运行资源、完成 startup、接收请求
+  → 关闭时清理资源并释放数据库连接
+```
+
+**运行入口会自动执行待应用迁移并修改数据库结构。** 连接检查在 lifespan 的 `yield` 前完成；迁移或检查失败会阻止完成启动。当前 Dockerfile 仍使用旧 `app.main:app` 且未复制完整后端，尚不能作为当前版本部署入口。
+
+## 当前接口与身份规则
+
+默认全局前缀为 `/predictive/medicine`，仅在总路由注册时添加一次。
+
+| 方法 | 完整路径 | 身份要求与行为 |
+| --- | --- | --- |
+| POST | `/predictive/medicine/identity/register` | 匿名注册；创建租户、用户及成员关系，返回 ID、用户名和邮箱，不签发 Token |
+| POST | `/predictive/medicine/identity/verify` | 匿名提交用户名、密码、tenant_id；成功返回 IdentityContext，不签发 Token |
+| POST | `/predictive/medicine/identity/create_tenant` | 要求请求身份；创建租户，尚未补管理权限校验或自动成员绑定 |
+| POST | `/predictive/medicine/check/health` | 要求请求身份；事务写入健康检查记录并返回结果，会产生数据库数据 |
+
+公开路由由 `backend/config/white_list.yaml` 中的 `method + path` 精确配置；配置路径不含全局前缀，由工厂拼接。当前仅注册和凭据校验公开，注册没有一次性限制，也没有赋予“默认管理员”的权限模型。
+
+身份模式互斥：
+
+- **dev**：传入完整的 `X-Tenant-Id` 和 `X-User-Id`，中间件通过 Service 查询有效用户、租户及成员关系，再设置 IdentityContext；这用于本地开发，Header 本身不能证明请求者身份。
+- **非 dev**：设计为仅接收 `Authorization: Bearer <token>`；当前缺少验证实现，尚不可作为可用认证链路。
+- Token 与身份 Header 不可同时传递；重复身份 Header 会被拒绝。业务通过 `require_identity()` 读取经过中间件设置的上下文，匿名公开请求没有该上下文。
+
+使用数据库内已有且有效的成员 ID 测试健康接口：
+
+```bash
+curl -X POST http://127.0.0.1:8001/predictive/medicine/check/health \
+  -H 'X-Tenant-Id: <真实租户ID>' \
+  -H 'X-User-Id: <真实用户ID>'
+```
+
+请求字段以 `backend/services/identity/model/common.py` 为准。当前可空字段未设置默认值，不能把“允许 null”理解为“可以省略”；必填约束仍需完善。缺失/非法身份 Header、认证失败和数据库冲突的受控错误响应也尚未完整覆盖，可能返回 500。
+
+`verification_timeout_seconds` 位于 `backend/config/identity.yaml`，单位为秒，表示单次 Token 验证等待上限，**不是 Token 有效期**。Redis 会话 TTL、过期与注销为后续工作。
+
+FastAPI 保留默认 `/docs` 与 `/openapi.json` 路径，但当前认证中间件同样会处理这些路径；它们没有自动列入公开路由。
+
+## 数据库迁移与验证
+
+迁移配置为 `backend/alembic.ini`，现有版本包括健康记录表和身份三表。手动查看历史或执行迁移时，也从项目根目录使用后端解释器：
+
+```bash
+APP_ENV=dev backend/.venv/bin/python -m alembic -c backend/alembic.ini history
+APP_ENV=dev backend/.venv/bin/python -m alembic -c backend/alembic.ini current
+APP_ENV=dev backend/.venv/bin/python -m alembic -c backend/alembic.ini upgrade head
+```
+
+后两条需要数据库连接，`upgrade head` 会修改数据库。已应用版本不会因编辑旧脚本而重新执行；结构变更新建迁移。自动生成迁移前还需确认 `env.py` 导入了全部受管理 ORM，避免仅加载 Base 得到不完整 metadata。
+
+数据库已有针对 `BusinessEntityMixin` 的租户/软删除查询范围与审计钩子；身份查询使用限定的 `authentication_query=True` 例外。它们不等同于完整权限体系，事务内 `set_config` 也不等于已实现 PostgreSQL RLS。
+
+旧测试仍引用已移除的 `app.main` / `app.domain.model_policy`，需要迁移到当前代码；不能用历史测试结果证明当前版本通过。下一阶段应补身份拒绝路径、注册事务回滚、租户隔离和最小 Agent 运行的验收样例。
+
+## 后续实施与文档
+
+| 模块 | 重点 |
+| --- | --- |
+| 00 | 工程、数据库、异常与可复现验证 |
+| 01A / 01B | 用户租户认证；个人授权、撤回与外发策略 |
+| 02–03 | 观测导入、时间对齐、覆盖率与数据质量 |
+| 04–05 | 个人多窗口基线、确定性/统计漂移 |
+| 06–07 | 历史证据、ReviewCase、人工决定与 Outcome |
+| 08–09 | 受控 Agent 运行、事件、回放与离线评测 |
+| 10–12 | 现实数据/语音、可选多 Agent、文档知识源 |
+
+可先设计最小 Run 契约并用合成 EvidencePacket 验证有限图，但不得把模型生成解释当作数值检测已完成。模型外发、工具访问和恢复执行均需独立授权；真实个人数据接入前落实同意、撤回、存储与删除规则。
+
+本地详细资料位于 `temp/`：`个人行为先兆预判Agent/` 为规划与模块任务书，`待办/` 为分模块缺口清单，`project-memory.md` 记录最新决策，`项目推进时间表-每天两小时.md` 为排期参考。`temp/` 被 Git 忽略，公开仓库以本 README 和实际代码为入口；历史计划有冲突时以最新决策为准。
+
+旧的[安全与模型外发策略](docs/security-and-model-policy.md)保留为历史参考，其最小权限、默认拒绝外发与审计原则可复用；原 RAG 产品范围和实施顺序不再是当前主线。
