@@ -4,13 +4,17 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from backend.common.config.model.llm_vendor import LLMVendorSetting
 from backend.common.id.snowflake import SnowflakeIdGenerator
+from backend.infrastructure.llm.runtime import ModelRuntime
 
 
 @dataclass(frozen=True, slots=True)
 class RuntimeResources:
     session_factory: async_sessionmaker[AsyncSession]
     id_generator: SnowflakeIdGenerator
+    model_runtime: ModelRuntime
+    llm_vendor_setting: LLMVendorSetting
 
 
 _resources: RuntimeResources

@@ -11,10 +11,5 @@ class HealthCheckORM(BusinessEntityMixin, Base):
     __tablename__ = "pm_health_checks"
     __table_args__ = {"schema": "public"}
 
-    id: Mapped[int] = mapped_column(
-        BigInteger,
-        primary_key=True,
-        autoincrement=False,
-    )
     status: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     message: Mapped[str | None] = mapped_column(String(1024), nullable=True)

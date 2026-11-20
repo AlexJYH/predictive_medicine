@@ -5,7 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 
 class BusinessEntityMixin:
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, comment="业务主键 ID")
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, comment="业务主键 ID", autoincrement=False)
     tenant_id: Mapped[int] = mapped_column(BigInteger, index=True, default=0, comment="租户 ID")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), comment="创建时间")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), comment="更新时间")

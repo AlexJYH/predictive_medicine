@@ -14,6 +14,7 @@ from backend.infrastructure.database.audit import register_audit_events
 from backend.infrastructure.database.health import check_connection
 from backend.infrastructure.database.session import DatabaseRuntime
 from backend.infrastructure.database.tenant_scope import register_tenant_scope_updates
+from backend.infrastructure.llm.runtime import ModelRuntime
 from backend.infrastructure.runtime import RuntimeResources, clear_resources, initialize_resources
 
 
@@ -26,11 +27,16 @@ def create_app(config: BatchConfig) -> FastAPI:
             epoch_ms=int(config.id_generator_setting.id_generator.epoch.timestamp() * 1000),
             sequence_wait_timeout_ms=config.id_generator_setting.id_generator.sequence_wait_timeout_ms,
         )
+        llm_runtime=ModelRuntime(
+            llm_local_params_setting=config.llm_local_params_setting,
+        )
         try:
             await check_connection(runtime.session_factory)
             resources = RuntimeResources(
                 session_factory=runtime.session_factory,
                 id_generator=generator,
+                model_runtime=llm_runtime,
+                llm_vendor_setting=config.llm_vendor_setting,
             )
             initialize_resources(resources)
             try:

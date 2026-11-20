@@ -6,6 +6,8 @@ from backend.common.config.manager import get_config_manager
 from backend.common.config.model.database import DatabaseSettings
 from backend.common.config.model.id_generator import IdGeneratorSettings
 from backend.common.config.model.identity import IdentitySettings
+from backend.common.config.model.llm_local_params import LLMLocalParamsSettings
+from backend.common.config.model.llm_vendor import LLMVendorSetting
 from backend.common.config.model.server import ServerSettings
 from backend.common.config.model.white_list import RoutersSetting
 
@@ -17,6 +19,8 @@ class BatchConfig:
     id_generator_setting: IdGeneratorSettings
     identity_setting: IdentitySettings
     routers_setting: RoutersSetting
+    llm_local_params_setting: LLMLocalParamsSettings
+    llm_vendor_setting: LLMVendorSetting
 
 
 def load_batch_config(
@@ -38,6 +42,8 @@ def load_batch_config(
     id_generator_setting = config_manager.load(IdGeneratorSettings)
     identity_setting = config_manager.load(IdentitySettings)
     routers_setting = config_manager.load(RoutersSetting)
+    llm_local_params_setting = config_manager.load(LLMLocalParamsSettings)
+    llm_vendor_setting = config_manager.load(LLMVendorSetting)
 
     return BatchConfig(
         server_setting=server_setting,
@@ -45,4 +51,6 @@ def load_batch_config(
         id_generator_setting=id_generator_setting,
         identity_setting=identity_setting,
         routers_setting=routers_setting,
+        llm_local_params_setting=llm_local_params_setting,
+        llm_vendor_setting=llm_vendor_setting,
     )
