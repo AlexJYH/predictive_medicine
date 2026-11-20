@@ -6,4 +6,5 @@ class VendorConfig(ContractModel):
     vendor_api_key: str
 
 class LLMVendorSetting(ContractModel):
+    __config_key__ = 'llm_vendor'
     vendor: list[VendorConfig]

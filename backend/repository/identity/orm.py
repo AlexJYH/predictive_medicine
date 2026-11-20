@@ -40,6 +40,7 @@ class UserORM(Base):
         {"schema": "public", "comment": "全局用户"},
     )
 
+    id: Mapped[int] = mapped_column(BigInteger,primary_key=True,autoincrement=False,)
     username: Mapped[str] = mapped_column(String(256), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False, comment="密码哈希，不保存明文密码")
     mail: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -72,6 +73,7 @@ class TenantORM(Base):
         {"schema": "public", "comment": "租户"},
     )
 
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, )
     company_name: Mapped[str] = mapped_column(String(512), nullable=False)
     company_code: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="公司或业务编码，可空；提供时必须唯一")
     status: Mapped[int] = mapped_column(SmallInteger, nullable=False, server_default=text("0"),comment="租户状态：1禁用，0启用",)
@@ -97,6 +99,7 @@ class TenantUserRelationORM(Base):
         Index("ix_pm_tenant_user_relation_user_id", "user_id"),
         {"schema": "public", "comment": "租户成员关系"},
     )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, )
     tenant_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey(
