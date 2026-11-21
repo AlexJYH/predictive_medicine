@@ -4,11 +4,13 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from backend.common.config.manager import get_config
 from backend.common.config.model.llm_vendor import LLMVendorSetting
+from backend.common.enums.router import LLMVendor
 from backend.common.id.snowflake import SnowflakeIdGenerator
 from backend.common.identity.context import require_identity
-from backend.common.identity.model.identity import IdentityContext
 from backend.repository.llm_model.protocol import LLMModelRepository
-from backend.services.llm.vendor_model.model.llm_model import LLMModelInfoDTO
+from backend.services.llm.silicon_flow.model.silicon_response import ModelListResponse
+from backend.services.llm.silicon_flow.services.silicon_non_stream import SiliconNonStreamService
+from backend.services.llm.vendor_model.model.llm_model import LLMModelInfoDTO, LLMModelDTO
 
 from backend.services.llm.vendor_model.model.llm_model import LLMVendorDTO
 
@@ -20,12 +22,12 @@ class LLMModelService:
             repository: LLMModelRepository,
             session_factory: async_sessionmaker[AsyncSession],
             id_generator: SnowflakeIdGenerator,
-            llm_vendor_setting: LLMVendorSetting,
+            silicon_non_stream_service: SiliconNonStreamService,
     ) -> None:
         self._repository = repository
         self._session_factory = session_factory
         self._id_generator = id_generator
-        self._llm_vendor_setting = llm_vendor_setting
+        self._silicon_non_stream_service = silicon_non_stream_service
 
     async def get_model_info(self, scene: str) -> LLMModelInfoDTO | None:
         async with self._session_factory() as session:
@@ -77,6 +79,28 @@ class LLMModelService:
         async with self._session_factory() as session:
             async with session.begin():
                 await self._repository.create_llm_vendor(llm_vendor_lists,session)
+
+    async def create_llm_model(self, vendor_dto:LLMVendorDTO,model_list_responses:list[ModelListResponse]) -> None:
+        identity = require_identity()
+        now = datetime.now(UTC)
+        llm_model_dtos = []
+        for model_list_response in model_list_responses:
+            llm_model_dto = LLMModelDTO(
+                model = model_list_response.model_name,
+                vendor_id=vendor_dto.id,
+                id=self._id_generator.generate_next_id(),
+                status=0,
+                created_at=now,
+                updated_at=now,
+                created_by=identity.user_id,
+                updated_by=identity.user_id,
+                delete_flg = 0,
+            )
+            llm_model_dtos.append(llm_model_dto)
+        async with self._session_factory() as session:
+            async with session.begin():
+                await self._repository.create_llm_model(model_dtos=llm_model_dtos,session_factory=session,)
+
 
     def _conversion_passport(self,passport: str) -> str | None:
         llm_vendor_setting = get_config(LLMVendorSetting)

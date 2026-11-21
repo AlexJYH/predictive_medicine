@@ -10,7 +10,7 @@ def get_llm_model_service() -> LLMModelService:
         repository=PostgresLLMModelRepository(),
         session_factory=resources.session_factory,
         id_generator=resources.id_generator,
-        llm_vendor_setting=resources.llm_vendor_setting,
+        silicon_non_stream_service=get_silicon_service(),
     )
 
 def get_silicon_service() -> SiliconNonStreamService:
@@ -18,5 +18,4 @@ def get_silicon_service() -> SiliconNonStreamService:
     return SiliconNonStreamService(
         session_factory=resources.session_factory,
         id_generator=resources.id_generator,
-        llm_model_service=get_llm_model_service(),
     )

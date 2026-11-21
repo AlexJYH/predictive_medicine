@@ -16,14 +16,14 @@ class LLMVendor(str,Enum):
     code: str
     label: str
 
-class SiliconFlowModelEnum(str,Enum):
+class SiliconFlowModel(str,Enum):
     TEXT = ("text","Text")
     IMAGE = ("image","Image")
     AUDIO = ("audio","Audio")
     VIDEO = ("video","Video")
 
-    def __new__(cls,code: str, label: str) -> "SiliconFlowModelEnum":
-        member = cast("SiliconFlowModelEnum",str.__new__(cls,code))
+    def __new__(cls,code: str, label: str) -> "SiliconFlowModel":
+        member = cast("SiliconFlowModel",str.__new__(cls,code))
         member._value_ = code
         member.code = code
         member.label = label
