@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.common.config.model.llm_vendor import LLMVendorSetting
@@ -15,6 +16,7 @@ class RuntimeResources:
     id_generator: SnowflakeIdGenerator
     model_runtime: ModelRuntime
     llm_vendor_setting: LLMVendorSetting
+    http_client: AsyncClient
 
 
 _resources: RuntimeResources

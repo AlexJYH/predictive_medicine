@@ -34,13 +34,13 @@ class LLMVendorDTO(ContractModel):
     url: str
     passport: str
     api_key: str | None = None
-    id: int | None
-    status: int | None
-    created_by: int | None
-    created_at: datetime | None
-    updated_by: int | None
-    updated_at: datetime | None
-    delete_flg: int | None
+    id: int | None = None
+    status: int | None = None
+    created_by: int | None = None
+    created_at: datetime | None = None
+    updated_by: int | None = None
+    updated_at: datetime | None = None
+    delete_flg: int | None = None
 
 
 class LLMModelInfoDTO(ContractModel):

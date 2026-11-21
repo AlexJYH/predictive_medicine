@@ -10,7 +10,7 @@ from langchain_litellm import ChatLiteLLMRouter
 from litellm import Router
 
 from backend.common.config.model.llm_local_params import LLMLocalParamsSettings
-from backend.services.llm_model.model.llm_model import LLMModelInfoDTO, LLMModelDTO, LLMVendorDTO
+from backend.services.llm.vendor_model.model.llm_model import LLMModelInfoDTO, LLMModelDTO, LLMVendorDTO
 
 
 class ModelRuntime:

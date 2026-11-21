@@ -2,9 +2,11 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
+from httpx import AsyncClient
 
 from backend.app.api.router import api_router
 from backend.app.middleware.authentication.auth import AuthenticationMiddleware
@@ -32,17 +34,19 @@ def create_app(config: BatchConfig) -> FastAPI:
         )
         try:
             await check_connection(runtime.session_factory)
-            resources = RuntimeResources(
-                session_factory=runtime.session_factory,
-                id_generator=generator,
-                model_runtime=llm_runtime,
-                llm_vendor_setting=config.llm_vendor_setting,
-            )
-            initialize_resources(resources)
-            try:
-                yield
-            finally:
-                clear_resources()
+            async with httpx.AsyncClient(timeout=config.server_setting.server.http_timeout) as http_client:
+                resources = RuntimeResources(
+                    session_factory=runtime.session_factory,
+                    id_generator=generator,
+                    model_runtime=llm_runtime,
+                    llm_vendor_setting=config.llm_vendor_setting,
+                    http_client=http_client,
+                )
+                initialize_resources(resources)
+                try:
+                    yield
+                finally:
+                    clear_resources()
         finally:
             await runtime.close()
 

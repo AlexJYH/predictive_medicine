@@ -2,7 +2,7 @@ from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.services.llm_model.model.llm_model import LLMVendorDTO, LLMModelDTO, ModelRouteDTO
+from backend.services.llm.vendor_model.model.llm_model import LLMVendorDTO, LLMModelDTO, ModelRouteDTO
 
 
 class LLMModelRepository(Protocol):
@@ -13,7 +13,7 @@ class LLMModelRepository(Protocol):
 
     async def delete_llm_vendor(self, vendor_ids: list[int], session_factory: AsyncSession) -> None: ...
 
-    async def search_llm_vendor(self, vendor_ids: list[int] | None, vendor_name: str | None, session_factory: AsyncSession) -> list[LLMVendorDTO]: ...
+    async def search_llm_vendor(self, *, vendor_ids: list[int] | None = None, vendor_name: str | None, session_factory: AsyncSession) -> list[LLMVendorDTO]: ...
 
     async def create_llm_model(self, model_dtos: list[LLMModelDTO], session_factory: AsyncSession) -> None: ...
 

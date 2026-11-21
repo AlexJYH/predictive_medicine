@@ -14,6 +14,7 @@ class ServerSettings(ContractModel):
         host: str
         port: int
         prefix: str
+        http_timeout: int
 
         @field_validator("prefix")
         @classmethod

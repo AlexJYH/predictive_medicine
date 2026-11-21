@@ -1,17 +1,28 @@
-from distro import like
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.repository.llm_model.orm import LLMVendorORM, LLMModelORM, ModelRouteORM
 from backend.repository.llm_model.protocol import LLMModelRepository
-from backend.services.llm_model.model.llm_model import LLMVendorDTO, LLMModelDTO, ModelRouteDTO
+from backend.services.llm.vendor_model.model.llm_model import LLMVendorDTO, LLMModelDTO, ModelRouteDTO
 
 
 class PostgresLLMModelRepository(LLMModelRepository):
 
     async def create_llm_vendor(self, vendor_dtos: list[LLMVendorDTO], session_factory: AsyncSession) -> None:
         for vendor_dto in vendor_dtos:
-            session_factory.add(LLMVendorORM(**vendor_dto.model_dump()))
+            llm_vendor_orm = LLMVendorORM(
+                vendor=vendor_dto.vendor,
+                url=vendor_dto.url,
+                passport=vendor_dto.passport,
+                status=vendor_dto.status,
+                id=vendor_dto.id,
+                created_by=vendor_dto.created_by,
+                updated_by=vendor_dto.updated_by,
+                updated_at=vendor_dto.updated_at,
+                delete_flg=vendor_dto.delete_flg,
+                created_at=vendor_dto.created_at,
+            )
+            session_factory.add(llm_vendor_orm)
         await session_factory.flush()
 
     async def update_llm_vendor(self, vendor_dtos: list[LLMVendorDTO], session_factory: AsyncSession) -> None:
@@ -41,7 +52,7 @@ class PostgresLLMModelRepository(LLMModelRepository):
 
         await session_factory.flush()
 
-    async def search_llm_vendor(self, vendor_ids: list[int] | None, vendor_name: str | None, session_factory: AsyncSession) -> list[LLMVendorDTO]:
+    async def search_llm_vendor(self, *, vendor_ids: list[int] | None=None, vendor_name: str | None, session_factory: AsyncSession) -> list[LLMVendorDTO]:
         statement = select(LLMVendorORM).where(LLMVendorORM.delete_flg == 0)
         if vendor_ids:
             statement = statement.where(LLMVendorORM.id.in_(vendor_ids))
