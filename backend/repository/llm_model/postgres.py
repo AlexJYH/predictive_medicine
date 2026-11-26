@@ -62,19 +62,8 @@ class PostgresLLMModelRepository(LLMModelRepository):
 
         vendor_dtos = []
         for vendor in result.scalars().all():
-            vendor_dtos.append(LLMVendorDTO(
-                vendor=vendor.vendor,
-                url=vendor.url,
-                passport=vendor.passport,
-                status=vendor.status,
-                id=vendor.id,
-                created_by=vendor.created_by,
-                updated_by=vendor.updated_by,
-                updated_at=vendor.updated_at,
-                delete_flg=vendor.delete_flg,
-                created_at=vendor.created_at,
-                tenant_id=vendor.tenant_id,
-            ))
+            dto = LLMVendorDTO.model_valid(vendor)
+            vendor_dtos.append(dto)
 
         return vendor_dtos
 
@@ -121,19 +110,8 @@ class PostgresLLMModelRepository(LLMModelRepository):
         result = await session_factory.execute(statement)
         model_dtos = []
         for model in result.scalars().all():
-            model_dtos.append(LLMModelDTO(
-                model=model.model,
-                vendor_id=model.vendor_id,
-                status=model.status,
-                id=model.id,
-                created_by=model.created_by,
-                updated_by=model.updated_by,
-                updated_at=model.updated_at,
-                created_at=model.created_at,
-                delete_flg=model.delete_flg,
-                tenant_id=model.tenant_id,
-                api_prefix=model.api_prefix,
-            ))
+            dto = LLMModelDTO.model_validate(model, from_attributes=True)
+            model_dtos.append(dto)
 
         return model_dtos
 
@@ -195,18 +173,7 @@ class PostgresLLMModelRepository(LLMModelRepository):
         result = await session_factory.execute(statement)
         model_routes = []
         for route in result.scalars().all():
-            model_routes.append(ModelRouteDTO(
-                id=route.id,
-                model_id=route.model_id,
-                fallback_id=route.fallback_id,
-                scene=route.scene,
-                usage=route.usage,
-                status=route.status,
-                created_by=route.created_by,
-                updated_by=route.updated_by,
-                updated_at=route.updated_at,
-                created_at=route.created_at,
-                delete_flg=route.delete_flg,
-            ))
+            dto = ModelRouteDTO.model_validate(route, from_attributes=True)
+            model_routes.append(dto)
 
         return model_routes
