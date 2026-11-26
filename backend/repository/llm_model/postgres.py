@@ -52,12 +52,12 @@ class PostgresLLMModelRepository(LLMModelRepository):
 
         await session_factory.flush()
 
-    async def search_llm_vendor(self, *, vendor_ids: list[int] | None=None, vendor_name: str | None, session_factory: AsyncSession) -> list[LLMVendorDTO]:
+    async def search_llm_vendor(self, *, vendor_ids: list[int] | None=None, vendor_names: list[str] | None, session_factory: AsyncSession) -> list[LLMVendorDTO]:
         statement = select(LLMVendorORM).where(LLMVendorORM.delete_flg == 0)
         if vendor_ids:
             statement = statement.where(LLMVendorORM.id.in_(vendor_ids))
-        if vendor_name and vendor_name.strip():
-            statement = statement.where(LLMVendorORM.vendor.like(f"%{vendor_name}%"))
+        if vendor_names:
+            statement = statement.where(LLMVendorORM.vendor.in_(vendor_names))
         result = await session_factory.execute(statement)
 
         vendor_dtos = []
@@ -73,6 +73,7 @@ class PostgresLLMModelRepository(LLMModelRepository):
                 updated_at=vendor.updated_at,
                 delete_flg=vendor.delete_flg,
                 created_at=vendor.created_at,
+                tenant_id=vendor.tenant_id,
             ))
 
         return vendor_dtos
@@ -108,14 +109,14 @@ class PostgresLLMModelRepository(LLMModelRepository):
             model.delete_flg = 1
         await session_factory.flush()
 
-    async def search_llm_model(self, vendor_ids: list[int] | None, model: str | None, model_ids: list[int] | None , session_factory: AsyncSession) -> list[LLMModelDTO]:
+    async def search_llm_model(self, vendor_ids: list[int] | None, models: list[str] | None, model_ids: list[int] | None , session_factory: AsyncSession) -> list[LLMModelDTO]:
         statement = select(LLMModelORM).where(LLMModelORM.delete_flg == 0)
         if vendor_ids:
             statement = statement.where(LLMModelORM.vendor_id.in_(vendor_ids))
         if model_ids:
             statement = statement.where(LLMModelORM.id.in_(model_ids))
-        if model and model.strip():
-            statement = statement.where(LLMModelORM.model.like(f"%{model}%"))
+        if models:
+            statement = statement.where(LLMModelORM.model.in_(models))
 
         result = await session_factory.execute(statement)
         model_dtos = []
@@ -130,13 +131,27 @@ class PostgresLLMModelRepository(LLMModelRepository):
                 updated_at=model.updated_at,
                 created_at=model.created_at,
                 delete_flg=model.delete_flg,
+                tenant_id=model.tenant_id,
             ))
 
         return model_dtos
 
     async def create_model_route(self, route_dtos: list[ModelRouteDTO], session_factory: AsyncSession) -> None:
         for route_dto in route_dtos:
-            session_factory.add(ModelRouteORM(**route_dto.model_dump()))
+            session_factory.add(ModelRouteORM(
+                id=route_dto.id,
+                tenant_id=route_dto.tenant_id,
+                created_at=route_dto.created_at,
+                updated_at=route_dto.updated_at,
+                created_by=route_dto.created_by,
+                updated_by=route_dto.updated_by,
+                delete_flg=route_dto.delete_flg,
+                model_id=route_dto.model_id,
+                fallback_id=route_dto.fallback_id,
+                scene=route_dto.scene,
+                usage=route_dto.usage,
+                status=route_dto.status,
+            ))
         await session_factory.flush()
 
     async def update_model_route(self, route_dtos: list[ModelRouteDTO], session_factory: AsyncSession) -> None:
@@ -165,16 +180,16 @@ class PostgresLLMModelRepository(LLMModelRepository):
 
         await session_factory.flush()
 
-    async def search_model_route(self, model_ids: list[int] | None, fallback_ids: list[int] | None,scene: str | None, usage: str | None, session_factory: AsyncSession) -> list[ModelRouteDTO]:
+    async def search_model_route(self, model_ids: list[int] | None, fallback_ids: list[int] | None,scene_list: list[str] | None, usage_list: list[str] | None, session_factory: AsyncSession) -> list[ModelRouteDTO]:
         statement = select(ModelRouteORM).where(ModelRouteORM.delete_flg == 0)
         if model_ids:
             statement = statement.where(ModelRouteORM.model_id.in_(model_ids))
         if fallback_ids:
             statement = statement.where(ModelRouteORM.fallback_id.in_(fallback_ids))
-        if scene and scene.strip():
-            statement = statement.where(ModelRouteORM.scene.like(f"%{scene}%"))
-        if usage and usage.strip():
-            statement = statement.where(ModelRouteORM.usage.like(f"%{usage}%"))
+        if scene_list:
+            statement = statement.where(ModelRouteORM.scene.in_(scene_list))
+        if usage_list:
+            statement = statement.where(ModelRouteORM.usage.in_(usage_list))
 
         result = await session_factory.execute(statement)
         model_routes = []

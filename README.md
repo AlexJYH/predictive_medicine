@@ -1,6 +1,8 @@
-# 个人行为先兆预判 · predictive_medicine
+# Agent Platform · predictive_medicine
 
-`predictive_medicine`（原 `rag_parse`）是正在建设的开源**个人行为先兆预判 / 基线漂移解释 Agent**。目标是较早发现个人日常行为相对自身基线的变化，生成带来源、带不确定性、供人复核的线索。
+本项目正在建设可复用的 Python Agent / Harness 基座，当前工作副本目录为 `agent_platform`，仓库沿用 `predictive_medicine` 名称，早期名为 `rag_parse`。当前重点是用户租户基础、模型供应商接入、模型目录与场景路由，以及受控 Agent 执行能力。
+
+个人行为先兆预判 / 基线漂移解释是业务方向。通用 Agent 核心与业务域分开，通过工具、策略和适配器连接。业务目标是较早发现个人日常行为相对自身基线的变化，生成带来源、带不确定性、供人复核的线索。
 
 项目不做疾病诊断、因果断言或未经验证的未来风险预测。数值异常由确定性或统计程序检测，LLM 负责整理证据和解释；数据不足时明确输出未知。
 
@@ -18,11 +20,11 @@
 
 首版使用合成或许可适用的去标识数据离线验证。HealthKit、语音、多 Agent 和文档解析为后续能力；文档仅作为照护记录、报告或指南的可选知识源。
 
-技术方向为 Python 后端、LangGraph 有限图编排、LangChain 模型/消息/工具接口。项目自身建设观测契约、基线与漂移证据、授权和模型外发策略、运行事件及回放评测。LangGraph/LangChain 当前尚未接入代码或依赖。
+技术方向为 Python 后端、LangGraph 有限图编排、LangChain 模型/消息/工具接口。项目自身建设观测契约、基线与漂移证据、授权和模型外发策略、运行事件及回放评测。当前已声明 `langchain-core`、`langchain-litellm` 与 `litellm` 依赖，并实现模型调用适配；LangGraph 执行图尚未接入。
 
 ## 当前进度
 
-以下按 2026-11-10 当前源码整理，代码存在不等于已通过完整集成验收。
+以下按 2026-11-23 当前工作副本源码整理，代码存在不等于已通过完整集成验收。
 
 | 能力 | 当前状态 |
 | --- | --- |
@@ -34,10 +36,15 @@
 | Token 会话 | 仅有验证协议和中间件调用位置；工厂传入 `token_verifier=None`，Token 签发、验证实现、Redis 会话和过期/注销尚未完成 |
 | 管理权限与开户限制 | 尚无完整管理角色/权限校验；`register` 可重复调用，一次性初始化限制已决定暂缓 |
 | 个人数据授权 | ConsentGrant、撤回及模型外发策略尚未落地；用户租户身份不能替代个人数据授权 |
+| 模型配置与运行资源 | 已增加供应商密钥引用、模型调用参数及共享 HTTPX AsyncClient，随应用生命周期装配 |
+| 模型目录 | 已有供应商、模型及场景路由三表的 ORM、迁移和仓储，提供 SiliconFlow 目录查询、供应商创建及模型批量入库入口 |
+| 模型调用 | ModelRuntime 基于 ChatLiteLLMRouter / LiteLLM Router，提供 ainvoke/astream、参数允许列表、重试/主备及流式等待时限；尚未完成当前版本端到端验收 |
+| 路由与聊天 | 已有按 scene 加载主备模型及凭据的逻辑；创建场景路由方法仍在开发，chat.py 为注释占位且未注册 |
+| 供应商客户端 | SiliconFlow 已封装目录、Batch 文件/任务及多模态等请求方法；这些是内部适配代码，各能力尚未逐项验证或开放业务 API；OpenRouter 客户端为占位 |
 | Agent 与核心业务 | `agent/` 为空包；观测、质量、基线、漂移、证据、ReviewCase、Outcome 与回放评测尚未实现 |
 | 工程验收 | Docker 和旧测试仍引用历史入口，需要对齐；当前不能视为生产就绪 |
 
-当前主线已进入最小 Agent 运行结构设计：先明确一次 Run 的用例、输入输出及状态，再定义最小数据契约和必要能力协议，随后接入 LangGraph/LangChain。可先用固定合成证据验证解释链；完整业务闭环仍需逐步补齐观测、质量、基线和漂移检测。
+当前主线已进入最小 Agent 运行结构设计：先明确一次 Run 的用例、输入输出及状态，再定义最小数据契约和必要能力协议，在已有模型运行时上接入 LangGraph。可先用固定合成证据验证解释链；完整业务闭环仍需逐步补齐观测、质量、基线和漂移检测。
 
 ## 代码结构与职责
 
@@ -51,16 +58,19 @@ backend/
 │   ├── api/
 │   │   ├── router.py               # 汇总路由
 │   │   ├── health/health.py        # 带身份的数据库写入检查
-│   │   └── identity/identity.py    # 注册、凭据校验、创建租户
+│   │   ├── identity/identity.py    # 注册、凭据校验、创建租户
+│   │   └── llm/                    # 供应商创建、目录查询和模型入库
 │   ├── middleware/authentication/ # 身份解析、拒绝响应、Token 验证协议
 │   ├── dependencies/
 │   ├── exception/
 │   └── schema/
-├── services/                       # health、identity 用例与契约
+├── services/                       # health、identity、llm 用例与契约
 ├── repository/                     # ORM、仓储协议、PostgreSQL 实现
 ├── infrastructure/
 │   ├── database/                   # Session、审计、租户范围与连接检查
-│   └── runtime.py                 # 运行资源注册与获取
+│   ├── llm/                       # LiteLLM / LangChain 模型运行时
+│   ├── httpx/                     # 供应商 HTTP 客户端与装配
+│   └── runtime.py                 # 数据库、ID、模型及共享 HTTP 资源
 ├── common/
 │   ├── config/                    # Loader、Manager、Bootstrap、配置模型
 │   ├── identity/                  # IdentityContext 与上下文操作
@@ -120,11 +130,11 @@ APP_ENV=dev backend/.venv/bin/python -m backend.main
   → 关闭时清理资源并释放数据库连接
 ```
 
-**运行入口会自动执行待应用迁移并修改数据库结构。** 连接检查在 lifespan 的 `yield` 前完成；迁移或检查失败会阻止完成启动。当前 Dockerfile 仍使用旧 `app.main:app` 且未复制完整后端，尚不能作为当前版本部署入口。
+**运行入口会自动执行待应用迁移并修改数据库结构。** 连接检查及共享 HTTPX/模型运行资源装配在 lifespan 的 `yield` 前完成；迁移或检查失败会阻止完成启动。当前 Dockerfile 仍使用旧 `app.main:app` 且未复制完整后端，尚不能作为当前版本部署入口。
 
 ## 当前接口与身份规则
 
-默认全局前缀为 `/predictive/medicine`，仅在总路由注册时添加一次。
+默认全局前缀为 `/predictive/medicine`，仅在总路由注册时添加一次，实际值可由环境覆盖。
 
 | 方法 | 完整路径 | 身份要求与行为 |
 | --- | --- | --- |
@@ -132,6 +142,9 @@ APP_ENV=dev backend/.venv/bin/python -m backend.main
 | POST | `/predictive/medicine/identity/verify` | 匿名提交用户名、密码、tenant_id；成功返回 IdentityContext，不签发 Token |
 | POST | `/predictive/medicine/identity/create_tenant` | 要求请求身份；创建租户，尚未补管理权限校验或自动成员绑定 |
 | POST | `/predictive/medicine/check/health` | 要求请求身份；事务写入健康检查记录并返回结果，会产生数据库数据 |
+| GET | `/predictive/medicine/silicon_flow/model_list` | 要求请求身份；vendor_name 必填，model_type/sub_type 可选，调用上游目录 |
+| POST | `/predictive/medicine/llm_vendor/create_llm_vendor` | 要求请求身份；请求体为供应商 DTO 列表，写入供应商注册记录 |
+| POST | `/predictive/medicine/llm_vendor/batch_create_llm_model` | 要求请求身份；vendor_name 为查询参数，拉取供应商目录并写入模型表 |
 
 公开路由由 `backend/config/white_list.yaml` 中的 `method + path` 精确配置；配置路径不含全局前缀，由工厂拼接。当前仅注册和凭据校验公开，注册没有一次性限制，也没有赋予“默认管理员”的权限模型。
 
@@ -155,9 +168,25 @@ curl -X POST http://127.0.0.1:8001/predictive/medicine/check/health \
 
 FastAPI 保留默认 `/docs` 与 `/openapi.json` 路径，但当前认证中间件同样会处理这些路径；它们没有自动列入公开路由。
 
+## 模型接入与调用
+
+当前链路为 `场景 scene → pm_model_route → pm_llm_model / pm_llm_vendor → 凭据解析 → ModelRuntime → ChatLiteLLMRouter → LiteLLM Router → 上游模型`。
+
+`pm_llm_vendor` 保存 API 供应商名称、URL 和 `passport` 凭据引用。`passport` 匹配 `backend/config/llm_vendor.yaml` 中的 `vendor_name`，密钥经环境变量注入。API 供应商与模型开发厂商分别表达，例如 SiliconFlow 是托管 API 平台，模型 ID 标识具体模型。
+
+首次配置时，将 `backend/env/example/llm.env` 复制到所选环境目录并填写所需密钥。当前 YAML 引用 `SILICON_FLOW_API_KEY` 与 `OPENROUTER_API_KEY`。共享 HTTP 请求超时由 server.http_timeout 控制，模型调用参数由 `backend/config/llm_local_params.yaml` 装配。
+
+`ModelRuntime.ainvoke()` 接收 LangChain 消息并返回 AIMessage，`astream()` 产出 AIMessageChunk。主备模型、重试次数、首段等待、片段间等待和总流时限已有实现。输入/输出 Token 上限、循环次数等配置字段的存在，不代表所有限制均已接入执行逻辑。流式过程中关闭 fallback continuation。
+
+供应商创建后可查询目录或批量写入模型。批量入库当前没有完整的重复同步/upsert 闭环，反复执行前需明确重复数据处理。模型目录存在也不能证明模型支持工具调用、结构化输出或已验证推理效果。
+
+SiliconFlowClient 封装的 Batch 文件上传接收推理请求 JSONL，上传和创建 Batch 任务分为两步。该入口尚未作为通用文档上传、解析或知识库能力暴露。视频、语音、图像、Embedding、Rerank 和快速决策等客户端方法也需按具体任务单独验证。
+
+当前尚无已注册的统一聊天/场景路由管理 HTTP 接口。路由创建代码、模型缓存更新、凭据与模型失效处理、统一错误响应、外发策略和用量追踪仍需继续完善。供应商 Client 通过内部工厂复用，业务 API 按用例建设。
+
 ## 数据库迁移与验证
 
-迁移配置为 `backend/alembic.ini`，现有版本包括健康记录表和身份三表。手动查看历史或执行迁移时，也从项目根目录使用后端解释器：
+迁移配置为 `backend/alembic.ini`，现有版本包括健康记录表、身份三表、模型供应商/模型/场景路由表，以及模型表的租户字段调整。手动查看历史或执行迁移时，也从项目根目录使用后端解释器：
 
 ```bash
 APP_ENV=dev backend/.venv/bin/python -m alembic -c backend/alembic.ini history
@@ -169,7 +198,7 @@ APP_ENV=dev backend/.venv/bin/python -m alembic -c backend/alembic.ini upgrade h
 
 数据库已有针对 `BusinessEntityMixin` 的租户/软删除查询范围与审计钩子；身份查询使用限定的 `authentication_query=True` 例外。它们不等同于完整权限体系，事务内 `set_config` 也不等于已实现 PostgreSQL RLS。
 
-旧测试仍引用已移除的 `app.main` / `app.domain.model_policy`，需要迁移到当前代码；不能用历史测试结果证明当前版本通过。下一阶段应补身份拒绝路径、注册事务回滚、租户隔离和最小 Agent 运行的验收样例。
+旧测试仍引用已移除的 `app.main` / `app.domain.model_policy`，需要迁移到当前代码；不能用历史测试结果证明当前版本通过。下一阶段应补身份拒绝路径、注册事务回滚、租户隔离、模型场景路由/主备切换/流式超时和最小 Agent 运行的验收样例。
 
 ## 后续实施与文档
 
@@ -183,7 +212,7 @@ APP_ENV=dev backend/.venv/bin/python -m alembic -c backend/alembic.ini upgrade h
 | 08–09 | 受控 Agent 运行、事件、回放与离线评测 |
 | 10–12 | 现实数据/语音、可选多 Agent、文档知识源 |
 
-可先设计最小 Run 契约并用合成 EvidencePacket 验证有限图，但不得把模型生成解释当作数值检测已完成。模型外发、工具访问和恢复执行均需独立授权；真实个人数据接入前落实同意、撤回、存储与删除规则。
+下一步先完成模型场景路由和最小调用验收，再设计通用 Run 契约并用合成输入验证有限图，但不得把模型生成解释当作数值检测已完成。模型外发、工具访问和恢复执行均需独立授权；真实个人数据接入前落实同意、撤回、存储与删除规则。
 
 本地详细资料位于 `temp/`：`个人行为先兆预判Agent/` 为规划与模块任务书，`待办/` 为分模块缺口清单，`project-memory.md` 记录最新决策，`项目推进时间表-每天两小时.md` 为排期参考。`temp/` 被 Git 忽略，公开仓库以本 README 和实际代码为入口；历史计划有冲突时以最新决策为准。
 
