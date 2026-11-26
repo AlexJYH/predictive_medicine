@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.common.config.model.llm_vendor import LLMVendorSetting
 from backend.common.id.snowflake import SnowflakeIdGenerator
-from backend.infrastructure.llm.runtime import ModelRuntime
+if TYPE_CHECKING:
+    from backend.infrastructure.llm.runtime import ModelRuntime
 
 
 @dataclass(frozen=True, slots=True)

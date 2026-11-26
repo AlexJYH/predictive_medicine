@@ -132,6 +132,7 @@ class PostgresLLMModelRepository(LLMModelRepository):
                 created_at=model.created_at,
                 delete_flg=model.delete_flg,
                 tenant_id=model.tenant_id,
+                api_prefix=model.api_prefix,
             ))
 
         return model_dtos

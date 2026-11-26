@@ -16,6 +16,7 @@ class LLMModelORM(BusinessEntityMixin, Base):
     model: Mapped[str] = mapped_column(String(256), nullable=False)
     vendor_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     status: Mapped[int | None] = mapped_column(SmallInteger, nullable=False,default=0)
+    api_prefix: Mapped[str] = mapped_column(String(256), nullable=False)
 
 
 class LLMVendorORM(BusinessEntityMixin, Base):

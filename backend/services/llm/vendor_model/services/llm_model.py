@@ -23,12 +23,10 @@ class LLMModelService:
             repository: LLMModelRepository,
             session_factory: async_sessionmaker[AsyncSession],
             id_generator: SnowflakeIdGenerator,
-            silicon_non_stream_service: SiliconNonStreamService,
     ) -> None:
         self._repository = repository
         self._session_factory = session_factory
         self._id_generator = id_generator
-        self._silicon_non_stream_service = silicon_non_stream_service
 
     async def get_model_info(self, scene: str) -> LLMModelInfoDTO | None:
         async with self._session_factory() as session:

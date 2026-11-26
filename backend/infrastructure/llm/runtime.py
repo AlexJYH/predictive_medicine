@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 from typing import Mapping, Any, Sequence, AsyncIterator, cast
 
-from langchain_core.messages import BaseMessage, AIMessage, AIMessageChunk
+from langchain_core.messages import BaseMessage, AIMessage, AIMessageChunk, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.utils.aiter import aclosing
 from langchain_litellm import ChatLiteLLMRouter
 from litellm import Router
 
 from backend.common.config.model.llm_local_params import LLMLocalParamsSettings
+from backend.services.llm.runtime import get_llm_model_service
 from backend.services.llm.vendor_model.model.llm_model import LLMModelInfoDTO, LLMModelDTO, LLMVendorDTO
 
 
@@ -59,7 +60,7 @@ class ModelRuntime:
         return {
             "model_name": model_name,
             "litellm_params": {
-                "model": model.model,
+                "model": f"{model.api_prefix}{model.model}",
                 "api_base": vendor.url,
                 "api_key": vendor.api_key,
             },
@@ -128,13 +129,15 @@ class ModelRuntime:
     async def ainvoke(
             self,
             *,
-            llm_model_info_dto: LLMModelInfoDTO,
-            message: Sequence[BaseMessage],
+            scene: str,
+            message: str,
             options: Mapping[str, Any] | None = None,
             config: RunnableConfig | None = None,
     ) -> AIMessage:
         if not message:
             raise ValueError("messages 不能为空")
+        message = [HumanMessage(content=message)]
+        llm_model_info_dto = await self._get_model_info(scene=scene)
         client = self._get_client(llm_model_info_dto=llm_model_info_dto)
         kwargs = self._prepare_options(options)
 
@@ -152,13 +155,14 @@ class ModelRuntime:
     async def astream(
             self,
             *,
-            llm_model_info_dto: LLMModelInfoDTO,
+            scene: str,
             message: Sequence[BaseMessage],
             options: Mapping[str, Any] | None = None,
             config: RunnableConfig | None = None,
     ) -> AsyncIterator[AIMessageChunk]:
         if not message:
             raise ValueError("messages 不能为空")
+        llm_model_info_dto = await self._get_model_info(scene=scene)
         client = self._get_client(llm_model_info_dto=llm_model_info_dto)
         kwargs = self._prepare_options(options)
         loop = asyncio.get_running_loop()
@@ -192,3 +196,7 @@ class ModelRuntime:
 
                 first = False
                 yield cast(AIMessageChunk, chunk)
+
+    async def _get_model_info(self,scene: str) -> LLMModelInfoDTO | None:
+        model_route_dto = await get_llm_model_service().get_model_info(scene=scene)
+        return model_route_dto

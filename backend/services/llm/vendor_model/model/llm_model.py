@@ -25,6 +25,7 @@ class ModelRouteDTO(ContractModel):
 class LLMModelDTO(ContractModel):
     model: str
     vendor_id: int
+    api_prefix: str
     id: int | None
     status: int | None
     created_by: int | None
