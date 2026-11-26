@@ -1,5 +1,4 @@
 import re
-from functools import lru_cache
 from pathlib import Path
 from typing import *
 
@@ -48,7 +47,21 @@ class ConfigManager:
     def clear_cache(self) -> None:
         self._cache.clear()
 
+_config_manager: ConfigManager | None = None
 
-@lru_cache
-def get_config_manager() -> ConfigManager:
-    return ConfigManager()
+
+def register_config_manager(config_manager: ConfigManager) -> None:
+    global _config_manager
+    _config_manager = config_manager
+
+
+def get_config(model_cls: type[T]) -> T:
+    manager = _config_manager
+    return manager.load(model_cls)
+
+
+def get_config_manager(
+        env: dict[str, str],
+        config_dir: str,
+) -> ConfigManager:
+    return ConfigManager(config_dir=config_dir, env=env, )

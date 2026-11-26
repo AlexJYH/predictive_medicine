@@ -1,0 +1,4 @@
+id_generator:
+  epoch: "2026-01-01T00:00:00Z"
+  worker_id: 1
+  sequence_wait_timeout_ms: 100

@@ -1,0 +1,6 @@
+vendor:
+  - vendor_name: silicon_flow_key
+    vendor_api_key: ${SILICON_FLOW_API_KEY:-}
+
+  - vendor_name: openrouter_key
+    vendor_api_key: ${OPENROUTER_API_KEY:-}

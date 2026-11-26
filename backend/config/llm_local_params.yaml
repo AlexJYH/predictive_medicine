@@ -1,0 +1,17 @@
+llm_configs:
+  # 首字节最大超时时间
+  first_timeout: 180
+  # 最大重试次数
+  retry: 5
+  # 是否启用流式输出
+  stream_status: true
+  # 两个输出之间最大超时时间
+  between_timeout: 20
+  # 最大循环次数，多个agent循环执行同一任务的次数
+  max_circulate: 3
+  # 整个流式最大执行时间
+  max_stream_time: 300
+  # 主备切换最大次数
+  fallback_times: 1
+  max_input_tokens: 16000
+  max_output_tokens: 4096
